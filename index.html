@@ -1,0 +1,112 @@
+<?php
+// Require PubNub Library
+require_once('Pubnub.php');
+
+// Init PubNub Instance Class
+$pubnub = new Pubnub(
+    $pub-c-5562f280-337e-4642-9924-5ea28539c2a3 ,
+    $sub-c-ca807c1a-7388-11e4-b043-02ee2ddab7fe
+);
+
+// Publish Ticker Feed Data
+$pubnub->publish(array(
+    'channel' => 'ticker',
+    'message' => array(
+        'date'           => 1386661231,
+        'amount'         => 0.1,
+        'price'          => 940.00001,
+        'price_currency' => 'USD'
+    )
+));
+?>
+pubnub.subscribe({
+    backfill : true,
+    channel  : [
+        'ticker'
+    ],
+    message  : function( message, env, channel ) {
+        // FIRE EVENT WHEN DATA ARRIVES
+        PUBNUB.events.fire( channel, message );
+    }
+});
+
+// Multiplexing channels is performed by simply creating
+// a comma-separated list of channels:
+...
+channel  : [
+        'ticker',
+        'trade'
+    ],
+//  -- TICKER DISPLAY -- 
+PUBNUB.events.bind( 'TRADE', function(data) {
+    console.log(data); // Update User Interface Here
+} );
+
+// -- TRADES (BUY/SELL) -- 
+PUBNUB.events.bind( 'TICKER', function(data) {
+    console.log(data); // Update User Interface Here
+} );
+var svg  = d3.select("#chart-graph");
+var x    = d3.time.scale().range([0, 1140]);
+var y    = d3.scale.linear().range([280, 0]);
+var area = d3.svg.area()
+    .x(function(d)  { return x(d.date); })
+    .y0(100)
+    .y1(function(d) { return y(d.close); });
+
+(function add_data(data) {
+    data.forEach(function(d) {
+        d.date  = d3.time.format("%d-%b-%y").parse(d[0]);
+        d.close = +d[1];
+    });
+
+    x.domain(d3.extent(  data, function(d) { return d.date  }));
+    y.domain([0, d3.max( data, function(d) { return d.close })]);
+
+    svg.append("path")
+        .datum(data)
+        .attr("class", "area")
+        .attr("d", area);
+})(
+    /* [ initial [x,y],.. array of arrays here ] */
+);
+
+add_data(data); // append more data;
+add_data(data); // append more data;
+// INIT PUB/SUB KEY
+var pubnub_chat = PUBNUB.init({
+    publish_key   : 'pub-c-5562f280-337e-4642-9924-5ea28539c2a3',
+    subscribe_key : 'sub-c-ca807c1a-7388-11e4-b043-02ee2ddab7fe'
+});
+
+// OPEN DATA STREAM FOR RECEIVING CHAT MESSAGES
+pubnub_chat.subscribe({
+    backfill : true,
+    channel  : chat_channel,
+    message  : process_inbound_chat
+});
+
+// SEND A CHAT MESSAGE
+function send_chat_message( user, message ) {
+    var msg = safe(message);
+    if (!msg) return;
+
+    pubnub_chat.publish({
+        channel : chat_channel,
+        message : {
+            color   : chat_color,
+            date    : +new Date,
+            user    : safe(user),
+            message : msg
+        }
+    });
+}
+pubnub.history({
+    limit    : 10,
+    channel  : 'TICKER',
+    callback : history_receiver
+})
+
+function history_receiver(messages) {
+    console.log(messages);
+}
